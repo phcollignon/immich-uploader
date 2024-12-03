@@ -10,6 +10,7 @@ import os
 import piexif
 from PIL import Image
 
+
 # Global variables
 API_KEY = 'your_api_key'  # Replace with a valid API key
 BASE_URL = 'http://your_immich_server/api'  # Replace as needed
@@ -164,7 +165,7 @@ def create_gui():
     calendar = Calendar(root, date_pattern="yyyy-mm-dd")
     calendar.pack(pady=5)
 
-     start_button = tk.Button(
+    start_button = tk.Button(
         root, text="Start/Reset Watcher",
         command=lambda: on_start_click(
             album_var,

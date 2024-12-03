@@ -12,7 +12,7 @@ import numpy as np
 import imutils
 
 # API configuration
-API_KEY = 'eGRl6zAzktWlNhOuMb0U85LViLQowdBOeNBPb2Kr0U'  # replace with a valid API key
+API_KEY = 'xxx'  # replace with a valid API key
 BASE_URL = 'http://photo.lan/api'  # replace as needed
 
 # Function to normalize file paths
