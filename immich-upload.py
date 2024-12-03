@@ -47,7 +47,18 @@ def update_exif_date(file, date):
         print(f"Failed to update EXIF date for {file}: {e}")
 
 
+def wait_for_file(file, retries=5, delay=1):
+    for _ in range(retries):
+        if os.access(file, os.R_OK | os.W_OK):
+            return True
+        time.sleep(delay)
+    return False
+
 def upload(file, album_name, date):
+    """Upload a file to the API."""
+    if not wait_for_file(file):
+        print(f"Failed to access file: {file}")
+        return
     """Upload a file to the API."""
     update_exif_date(file, date)
     stats = os.stat(file)
