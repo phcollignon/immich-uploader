@@ -6,7 +6,7 @@ This tool automates the process of managing and uploading photos scanned into a 
 - Select an album in Immich for the uploads.
 - Modify the photo's date in the EXIF metadata before uploading.
 - Upload scanned photos to Immich automatically.
-
+- Create a titled copy of the photo with the title added at the bottom, ensuring proper contrast for readability.
 ---
 
 ## Prerequisites
@@ -18,6 +18,28 @@ This tool automates the process of managing and uploading photos scanned into a 
    ```
 
 3. Have a running [Immich instance](https://github.com/alextran1502/immich) with an API key.
+
+
+---
+
+## Configuration
+
+### Settings
+
+You can pre-configure the following in the script:
+
+1. **API Key**: Your Immich API key.
+2. **Base URL**: The URL for your Immich instance.
+3. **Directory to Watch**: The directory where the tool will monitor for new files to upload.
+4. **Fonts Directory**: Path to the font file used for adding optional titles to photos.
+
+Example configuration:
+```python
+API_KEY = "your-api-key-here"
+BASE_URL = "http://your-immich-url/api"
+WATCH_DIR = r'C:\Users\your_username\Documents'
+FONT_PATH = r"C:\Windows\Fonts\arial.ttf"
+```
 
 ---
 
@@ -38,33 +60,15 @@ This tool automates the process of managing and uploading photos scanned into a 
    - Enter your **API Key** and **Base URL** (e.g., `http://localhost:3001/api`) in the provided fields. If these are hardcoded in the script, they will be pre-filled.
 
 4. **Select Options**:
-   - Choose the album where the photos will be uploaded.
+   - Choose one or more album(s) where the photos will be uploaded.
    - Adjust the date in the EXIF metadata using the calendar widget or dropdowns.
+   - Add a title for the photo, it can be multi-lines.  The title is added to a copy of the original photo, and the copy is uploaded.
 
 5. **Start Watching**:
    - Press the **Start/Reset Watcher** button to begin monitoring the directory.
 
 6. **Scan and Upload**:
    - Photos added to the watched directory will be automatically uploaded to Immich, with their EXIF dates updated to the selected date.
-
----
-
-## Configuration
-
-### Settings
-You can pre-configure the **API Key** and **Base URL** in the script:
-```python
-API_KEY = "your-api-key-here"
-BASE_URL = "http://your-immich-url/api"
-```
-
-### Directory to Watch
-By default, the tool watches the following directory:
-```python
-directory_to_watch = r"C:\Users\YourUsername\Documents"
-```
-Update this path as needed.
-
 ---
 
 ## Dependencies
@@ -76,11 +80,6 @@ Update this path as needed.
 - **`piexif`**: Edits EXIF metadata of photos.
 - **`Pillow`**: Handles image files.
 
----
-
-## Future Enhancements
-1. Provide an option to resize or compress images before upload.
-2. Include auto cropping support for scans with multiple photos.
 
 ---
 
