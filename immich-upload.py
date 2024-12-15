@@ -311,6 +311,7 @@ def create_gui():
     def update_calendar(*args):
         selected_year = int(year_var.get())
         calendar.selection_set(datetime(selected_year, 1, 1))
+        calendar.event_generate("<<CalendarSelected>>")
 
     year_var.trace_add("write", update_calendar)
     title_label = tk.Label(root, text="Title (supports line breaks):")
