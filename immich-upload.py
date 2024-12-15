@@ -11,6 +11,7 @@ import piexif
 from PIL import Image, ImageDraw, ImageFont, ImageStat
 import time
 import shutil
+import subprocess
 
 API_KEY = 'eGRl6zAzktWlNhOuMb0U85LViLQowdBOeNBPb2Kr0U'
 BASE_URL = 'http://photo.lan/api'
@@ -179,19 +180,33 @@ def upload(file, albums, date, album_ids, title):
         # Move the file after upload
         move_and_rename_file(file, WATCH_DIR,date)
 
-def upload_with_titled_copy(original_file, albums, date, album_ids, title):
+def upload_with_companion_files(original_file, albums, date, album_ids, title, has_enhanced=False):
     upload(original_file, albums, date, album_ids, title)
+
     if title:
         titled_file = create_titled_copy(original_file, title)
         if titled_file:
             upload(titled_file, albums, date, album_ids, title)
 
+    if has_enhanced:
+        enhanced_file = invoke_realesrgan(original_file, enhance_face=False)
+        if enhanced_file:
+            # Update EXIF and upload enhanced file
+            print(f"Processing enhanced file: {enhanced_file}")
+            update_exif_data(enhanced_file, date, title, albums)
+            upload(enhanced_file, albums, date, album_ids, title)
+        else:
+            print(f"Enhanced file not created for {original_file}.")
+
+
 class WatcherHandler(FileSystemEventHandler):
-    def __init__(self, album_vars, date, album_ids, title_text):
+    def __init__(self, album_vars, date, album_ids, title_text, repair_var, enhance_face_var):
         self.album_vars = album_vars
         self.date = date
         self.album_ids = album_ids
         self.title_text = title_text
+        self.repair_var = repair_var
+        self.enhance_face_var = enhance_face_var
 
     def get_selected_albums(self):
         return [album for album, var in self.album_vars.items() if var.get()]
@@ -206,14 +221,25 @@ class WatcherHandler(FileSystemEventHandler):
             selected_albums = self.get_selected_albums()
             title = self.title_text.get("1.0", "end-1c").strip()
             if selected_albums:
-                upload_with_titled_copy(event.src_path, selected_albums, self.date, self.album_ids, title)
+                has_enhanced = False
+                enhanced_dir = os.path.join(os.path.dirname(event.src_path), "enhanced")
+                if self.repair_var.get() or self.enhance_face_var.get():
+                    print(f"Repair or enhance selected for {event.src_path}")
+                    self.invoke_realesrgan(event.src_path, self.enhance_face_var.get())
+                    has_enhanced = True
+
+                upload_with_companion_files(
+                    event.src_path, selected_albums, self.date, self.album_ids, title, has_enhanced
+                )
             else:
                 print("No albums selected. Skipping upload.")
 
     def set_date(self, new_date):
         self.date = new_date
+    def invoke_realesrgan(self, absfilename, enhance_face):
+        invoke_realesrgan(absfilename, enhance_face)
 
-def start_watcher(album_vars, date_widget, album_ids, title_widget):
+def start_watcher(album_vars, date_widget, album_ids, title_widget, repair_var, enhance_face_var):
     global observer, WATCH_DIR, event_handler
     if observer:
         observer.stop()
@@ -221,7 +247,7 @@ def start_watcher(album_vars, date_widget, album_ids, title_widget):
         print("Watcher reset.")
     selected_date = date_widget.get_date()
     print(f"Using selected date: {selected_date}")
-    event_handler = WatcherHandler(album_vars, selected_date, album_ids, title_widget)
+    event_handler = WatcherHandler(album_vars, selected_date, album_ids, title_widget, repair_var, enhance_face_var)
     observer = Observer()
     observer.schedule(event_handler, path=WATCH_DIR, recursive=False)
     observer.start()
@@ -293,9 +319,17 @@ def create_gui():
     title_text = tk.Text(root, width=50, height=5, wrap="word")
     title_text.pack(pady=5)
 
+  
+    repair_var = tk.BooleanVar()
+    enhance_face_var = tk.BooleanVar()
+    repair_checkbox = tk.Checkbutton(root, text="Repair", variable=repair_var)
+    repair_checkbox.pack(anchor="w", padx=10)
+    enhance_face_checkbox = tk.Checkbutton(root, text="Enhance Face", variable=enhance_face_var)
+    enhance_face_checkbox.pack(anchor="w", padx=10)
+
     start_button = tk.Button(
         root, text="Start/Reset Watcher",
-        command=lambda: start_watcher(album_vars, calendar, album_ids, title_text)
+        command=lambda: start_watcher(album_vars, calendar, album_ids, title_text, repair_var, enhance_face_var)
     )
     start_button.pack(pady=10)
 
@@ -328,6 +362,54 @@ def move_and_rename_file(file, upload_dir, date):
             time.sleep(1)
 
     print(f"Failed to move file {file} after multiple retries. It may still be in use.")
+
+
+def invoke_realesrgan(absfilename, enhance_face=False):
+    script_dir = r'..\..\repaiphoto\Real-ESRGAN'
+    script_name = 'inference_realesrgan.py'
+    enhanced_dir = os.path.join(os.path.dirname(absfilename), "enhanced")
+    os.makedirs(enhanced_dir, exist_ok=True)
+
+    # Build the output filename
+    base_name, ext = os.path.splitext(os.path.basename(absfilename))
+    enhanced_file = os.path.join(enhanced_dir, f"{base_name}_out{ext}")
+
+    # Build the command
+    command = [
+        'python', os.path.join(script_dir, script_name),
+        '-n', 'RealESRGAN_x2plus',
+        '-i', absfilename,
+        '-o', enhanced_dir,
+        '-g', '0',
+        '-s', '1',
+        '--tile', '2500'
+    ]
+    if enhance_face:
+        command.append('--face_enhance')
+
+    # Execute the command
+    try:
+        print(f"Executing Real-ESRGAN for file: {absfilename}")
+        result = subprocess.run(command, capture_output=True, text=True, cwd=script_dir, shell=False)
+        print("Command executed successfully.")
+        print("Output:\n", result.stdout)
+        if result.stderr:
+            print("Errors:\n", result.stderr)
+    except Exception as e:
+        print(f"An error occurred while running Real-ESRGAN: {e}")
+        return None
+
+    # Wait for the enhanced file to appear
+    for _ in range(20):  # Retry up to 10 times with a delay
+        if os.path.exists(enhanced_file):
+            print(f"Enhanced file found: {enhanced_file}")
+            return enhanced_file
+        time.sleep(5)
+
+    print(f"Enhanced file not found: {enhanced_file}")
+    return None
+
+
 
 
 
